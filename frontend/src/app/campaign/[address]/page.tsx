@@ -38,9 +38,9 @@ import { useState } from "react";
 // Testable demo campaign addresses (deployed on Monad testnet)
 // These contracts bypass time restrictions and support instant finalize/refund.
 const TESTABLE_CAMPAIGN_ADDRESSES = new Set([
-  "0xb4afc034ee451fd11dc69de4b093382e0233cd49",
-  "0x10f58caa83778f088e9bf0d5f98b1a8ce923febc",
-  "0xf155d808e07f8cb2ac8a2cd7b7a0cb48246d2460",
+  "0xf6c7c8797804b7ebc4f9392ebf6ce7c69b7ef5b6",
+  "0x08e287e20de36fda18c9b66cc986783c10524699",
+  "0x4409810fe3259e02c414380e5b3c35ea463c405d",
 ]);
 
 export default function CampaignPage() {
