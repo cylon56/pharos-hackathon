@@ -25,7 +25,7 @@ export function DonationPanel({
   isActive,
   onDonated,
 }: DonationPanelProps) {
-  const { authState, wallets, handleLogin, httpClient } = useTurnkey();
+  const { authState, wallets, handleLogin, httpClient, session } = useTurnkey();
   const [amount, setAmount] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,12 +33,13 @@ export function DonationPanel({
   const presets = ["1", "10", "50", "100"];
 
   async function getWalletClient() {
-    if (!httpClient || !wallets?.[0]?.accounts?.[0]?.address) return null;
+    const walletAddress = wallets?.flatMap(w => w.accounts || [])
+      .find(a => a.address?.startsWith("0x"))?.address;
+    if (!httpClient || !walletAddress || !session?.organizationId) return null;
 
-    const walletAddress = wallets[0].accounts[0].address;
     const account = await createAccount({
       client: httpClient,
-      organizationId: httpClient.config.organizationId,
+      organizationId: session.organizationId,
       signWith: walletAddress,
     });
 

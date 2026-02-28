@@ -28,7 +28,7 @@ export function MilestoneMatchPanel({
   isActive,
   onCreated,
 }: MilestoneMatchPanelProps) {
-  const { authState, wallets, handleLogin, httpClient } = useTurnkey();
+  const { authState, wallets, handleLogin, httpClient, session } = useTurnkey();
   const [showForm, setShowForm] = useState(false);
   const [threshold, setThreshold] = useState("");
   const [matchAmount, setMatchAmount] = useState("");
@@ -47,15 +47,16 @@ export function MilestoneMatchPanel({
 
     setLoading(true);
     try {
-      if (!httpClient || !wallets?.[0]?.accounts?.[0]?.address) {
+      const walletAddress = wallets?.flatMap(w => w.accounts || [])
+        .find(a => a.address?.startsWith("0x"))?.address;
+      if (!httpClient || !walletAddress || !session?.organizationId) {
         toast.error("Wallet not ready");
         return;
       }
 
-      const walletAddress = wallets[0].accounts[0].address;
       const account = await createAccount({
         client: httpClient,
-        organizationId: httpClient.config.organizationId,
+        organizationId: session.organizationId,
         signWith: walletAddress,
       });
       const wc = createWalletClient({
