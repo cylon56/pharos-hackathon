@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+contracts/lib/
+
+# Build outputs
+contracts/out/
+contracts/cache/
+frontend/.next/
+frontend/out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Foundry
+contracts/broadcast/
+
+# Keys
+*.pem
+*.key
+.claude/
