@@ -97,7 +97,7 @@ export function WalletButton() {
   const displayAddress = truncateAddress(address);
 
   function copyAddress() {
-    navigator.clipboard.writeText(address);
+    navigator.clipboard.writeText(address!);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
