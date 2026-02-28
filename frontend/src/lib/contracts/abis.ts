@@ -90,16 +90,19 @@ export const CAMPAIGN_ABI = [
   {
     type: "function",
     name: "donate",
-    inputs: [],
+    inputs: [{ name: "amount", type: "uint256" }],
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
     name: "donateShielded",
-    inputs: [{ name: "commitmentHash", type: "bytes32" }],
+    inputs: [
+      { name: "commitmentHash", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -111,7 +114,7 @@ export const CAMPAIGN_ABI = [
       { name: "commitmentHash", type: "bytes32" },
     ],
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -324,5 +327,35 @@ export const CAMPAIGN_ABI = [
     type: "event",
     name: "MilestoneActivated",
     inputs: [{ name: "matchIndex", type: "uint256", indexed: true }],
+  },
+] as const;
+
+export const ERC20_ABI = [
+  {
+    type: "function",
+    name: "approve",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "allowance",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
   },
 ] as const;

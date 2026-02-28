@@ -7,6 +7,7 @@ import {PharosCampaign} from "./PharosCampaign.sol";
 /// @title PharosCampaignFactory - Deploys and tracks campaign instances
 contract PharosCampaignFactory is FeeCollectible {
 
+    address public immutable token;
     uint16 public feeBasisPoints;
 
     address[] public campaigns;
@@ -27,8 +28,9 @@ contract PharosCampaignFactory is FeeCollectible {
     error InvalidTiming();
     error FeeTooHigh();
 
-    constructor(address _feeCollector, uint16 _feeBasisPoints) FeeCollectible(_feeCollector) {
+    constructor(address _token, address _feeCollector, uint16 _feeBasisPoints) FeeCollectible(_feeCollector) {
         if (_feeBasisPoints > 1000) revert FeeTooHigh();
+        token = _token;
         feeBasisPoints = _feeBasisPoints;
     }
 
@@ -49,6 +51,7 @@ contract PharosCampaignFactory is FeeCollectible {
         if (_startTime < block.timestamp) revert InvalidTiming();
 
         PharosCampaign campaign = new PharosCampaign(
+            token,
             _recipient,
             _fundingGoal,
             _startTime,

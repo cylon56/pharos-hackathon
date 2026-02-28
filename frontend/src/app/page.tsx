@@ -83,7 +83,7 @@ export default function DiscoveryPage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-[var(--color-navy)] to-[#2d2d4e] text-white">
+      <section className="bg-gradient-to-br from-[#0f0d1a] via-[#1a0a2e] to-[#2d1b4e] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="max-w-3xl">
             <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
@@ -100,14 +100,14 @@ export default function DiscoveryPage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/create"
-                className="px-6 py-3 rounded-lg bg-[var(--color-teal)] text-white font-semibold hover:bg-[var(--color-teal-dark)] transition-colors flex items-center gap-2"
+                className="btn-primary px-6 py-3 rounded-xl font-semibold flex items-center gap-2"
               >
                 Create Campaign
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <a
                 href="#campaigns"
-                className="px-6 py-3 rounded-lg bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+                className="px-6 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/15 border border-white/10 hover:border-violet-400/30 transition-all"
               >
                 Explore Campaigns
               </a>
@@ -122,7 +122,7 @@ export default function DiscoveryPage() {
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-900/30 border border-violet-500/20 text-sm"
               >
                 <Icon className="w-4 h-4 text-[var(--color-teal)]" />
                 {label}
@@ -146,13 +146,13 @@ export default function DiscoveryPage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-white rounded-xl border border-[var(--color-border)] p-6 animate-pulse"
+                className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 animate-pulse"
               >
-                <div className="h-4 bg-gray-200 rounded w-20 mb-4" />
-                <div className="h-6 bg-gray-200 rounded w-3/4 mb-2" />
-                <div className="h-4 bg-gray-200 rounded w-full mb-6" />
-                <div className="h-3 bg-gray-200 rounded-full w-full mb-4" />
-                <div className="h-4 bg-gray-200 rounded w-1/3" />
+                <div className="h-4 bg-white/10 rounded w-20 mb-4" />
+                <div className="h-6 bg-white/10 rounded w-3/4 mb-2" />
+                <div className="h-4 bg-white/10 rounded w-full mb-6" />
+                <div className="h-3 bg-white/10 rounded-full w-full mb-4" />
+                <div className="h-4 bg-white/10 rounded w-1/3" />
               </div>
             ))}
           </div>
@@ -166,7 +166,7 @@ export default function DiscoveryPage() {
       </section>
 
       {/* How It Works */}
-      <section className="bg-white border-t border-[var(--color-border)]">
+      <section className="bg-[var(--color-surface)] border-t border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h2 className="text-2xl font-bold text-[var(--color-navy)] text-center mb-12">
             How Pharos Works
@@ -190,7 +190,7 @@ export default function DiscoveryPage() {
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="w-12 h-12 rounded-full bg-[var(--color-teal)] text-white text-lg font-bold flex items-center justify-center mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 text-white text-lg font-bold flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-900/40">
                   {item.step}
                 </div>
                 <h3 className="text-lg font-semibold text-[var(--color-navy)] mb-2">

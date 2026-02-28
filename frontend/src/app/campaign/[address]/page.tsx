@@ -96,9 +96,9 @@ export default function CampaignPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-64" />
-          <div className="h-4 bg-gray-200 rounded w-96" />
-          <div className="h-48 bg-gray-200 rounded-xl" />
+          <div className="h-8 bg-white/10 rounded w-64" />
+          <div className="h-4 bg-white/10 rounded w-96" />
+          <div className="h-48 bg-white/10 rounded-xl" />
         </div>
       </div>
     );
@@ -131,17 +131,17 @@ export default function CampaignPage() {
     [CampaignStatus.Active]: {
       icon: Clock,
       label: "Active",
-      color: "text-emerald-600 bg-emerald-50",
+      color: "text-emerald-400 bg-emerald-900/30",
     },
     [CampaignStatus.Successful]: {
       icon: CheckCircle,
       label: "Funded",
-      color: "text-blue-600 bg-blue-50",
+      color: "text-blue-400 bg-blue-900/30",
     },
     [CampaignStatus.Failed]: {
       icon: XCircle,
       label: "Failed",
-      color: "text-red-600 bg-red-50",
+      color: "text-red-400 bg-red-900/30",
     },
   };
 
@@ -152,7 +152,7 @@ export default function CampaignPage() {
       {/* Back Link */}
       <Link
         href="/"
-        className="inline-flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-navy)] mb-6"
+        className="inline-flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-violet-400 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         All Campaigns
@@ -162,7 +162,7 @@ export default function CampaignPage() {
       <div className="mb-8">
         <div className="flex items-start justify-between">
           <div>
-            <span className="text-sm font-medium text-[var(--color-teal)] uppercase tracking-wider">
+            <span className="text-sm font-medium text-violet-400 uppercase tracking-wider">
               {metadata.category}
             </span>
             <h1 className="text-3xl font-bold text-[var(--color-navy)] mt-1">
@@ -188,7 +188,7 @@ export default function CampaignPage() {
               href={`https://monad-testnet.socialscan.io/address/${campaign.recipient}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono hover:text-[var(--color-teal)] flex items-center gap-1"
+              className="font-mono hover:text-violet-400 transition-colors flex items-center gap-1"
             >
               {truncateAddress(campaign.recipient)}
               <ExternalLink className="w-3 h-3" />
@@ -207,7 +207,7 @@ export default function CampaignPage() {
         {/* Left Column: Progress + Actions */}
         <div className="lg:col-span-2 space-y-6">
           {/* Progress */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6">
             <ProgressBar
               raised={campaign.totalRaised}
               goal={campaign.fundingGoal}
@@ -216,7 +216,7 @@ export default function CampaignPage() {
 
           {/* Admin Actions */}
           {(canFinalize || isRecipient) && authState === "authenticated" && (
-            <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 space-y-3">
+            <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 space-y-3">
               <h3 className="text-lg font-semibold text-[var(--color-navy)]">
                 Campaign Actions
               </h3>
@@ -229,7 +229,7 @@ export default function CampaignPage() {
                       )
                     }
                     disabled={!!actionLoading}
-                    className="px-4 py-2 rounded-lg bg-[var(--color-navy)] text-white text-sm font-medium hover:bg-[var(--color-navy-light)] disabled:opacity-50 flex items-center gap-2"
+                    className="btn-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
                   >
                     <Flag className="w-4 h-4" />
                     {actionLoading === "Finalize"
@@ -244,7 +244,7 @@ export default function CampaignPage() {
                         handleAction("Claim", (wc) => claimFunds(wc, address))
                       }
                       disabled={!!actionLoading}
-                      className="px-4 py-2 rounded-lg bg-[var(--color-teal)] text-white text-sm font-medium hover:bg-[var(--color-teal-dark)] disabled:opacity-50 flex items-center gap-2"
+                      className="btn-primary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
                     >
                       <Coins className="w-4 h-4" />
                       {actionLoading === "Claim"
@@ -297,7 +297,7 @@ export default function CampaignPage() {
           />
 
           {/* Campaign Details Card */}
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6">
             <h3 className="text-sm font-semibold text-[var(--color-navy)] mb-3 uppercase tracking-wider">
               Details
             </h3>
@@ -309,7 +309,7 @@ export default function CampaignPage() {
                     href={`https://monad-testnet.socialscan.io/address/${address}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-[var(--color-teal)] hover:underline"
+                    className="font-mono text-violet-400 hover:underline hover:text-violet-300 transition-colors"
                   >
                     {truncateAddress(address)}
                   </a>

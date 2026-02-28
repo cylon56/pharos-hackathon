@@ -6,9 +6,9 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 
 export const metadata: Metadata = {
-  title: "Pharos - Private Crowdfunding Protocol",
+  title: "Pharos - Guiding Crowdfunding to Shore",
   description:
-    "Non-custodial assurance-contract crowdfunding with privacy-preserving donations on Monad.",
+    "Peer-to-peer assurance-contract crowdfunding with privacy-preserving donations on Monad. Inspired by Mike Hearn's Lighthouse protocol.",
 };
 
 export default function RootLayout({

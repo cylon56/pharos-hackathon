@@ -68,7 +68,7 @@ export default function DashboardPage() {
         </p>
         <button
           onClick={() => handleLogin()}
-          className="px-6 py-3 rounded-lg bg-[var(--color-teal)] text-white font-semibold hover:bg-[var(--color-teal-dark)]"
+          className="btn-primary px-6 py-3 rounded-xl font-semibold"
         >
           Sign In
         </button>
@@ -77,11 +77,11 @@ export default function DashboardPage() {
   }
 
   const statusIcons = {
-    [CampaignStatus.Active]: <Clock className="w-4 h-4 text-emerald-500" />,
+    [CampaignStatus.Active]: <Clock className="w-4 h-4 text-emerald-400" />,
     [CampaignStatus.Successful]: (
-      <CheckCircle className="w-4 h-4 text-blue-500" />
+      <CheckCircle className="w-4 h-4 text-blue-400" />
     ),
-    [CampaignStatus.Failed]: <XCircle className="w-4 h-4 text-red-500" />,
+    [CampaignStatus.Failed]: <XCircle className="w-4 h-4 text-red-400" />,
   };
 
   return (
@@ -103,10 +103,10 @@ export default function DashboardPage() {
           {[1, 2].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-xl border border-[var(--color-border)] p-6 animate-pulse"
+              className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 animate-pulse"
             >
-              <div className="h-6 bg-gray-200 rounded w-40 mb-4" />
-              <div className="h-16 bg-gray-200 rounded" />
+              <div className="h-6 bg-white/10 rounded w-40 mb-4" />
+              <div className="h-16 bg-white/10 rounded" />
             </div>
           ))}
         </div>
@@ -115,18 +115,18 @@ export default function DashboardPage() {
           {/* My Donations */}
           <section>
             <h2 className="text-xl font-semibold text-[var(--color-navy)] flex items-center gap-2 mb-4">
-              <Gift className="w-5 h-5 text-[var(--color-teal)]" />
+              <Gift className="w-5 h-5 text-violet-400" />
               My Donations
             </h2>
 
             {allCampaigns?.donated.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[var(--color-border)] p-8 text-center">
+              <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-8 text-center">
                 <p className="text-[var(--color-muted)]">
                   No donations yet.
                 </p>
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-1 mt-3 text-sm text-[var(--color-teal)] hover:underline"
+                  className="inline-flex items-center gap-1 mt-3 text-sm text-violet-400 hover:text-violet-300 transition-colors"
                 >
                   Explore campaigns <ArrowRight className="w-3 h-3" />
                 </Link>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                       key={campaign.address}
                       href={`/campaign/${campaign.address}`}
                     >
-                      <div className="bg-white rounded-xl border border-[var(--color-border)] p-4 hover:shadow-sm transition-shadow flex items-center justify-between">
+                      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 hover:border-violet-500/30 hover:shadow-md hover:shadow-violet-900/20 transition-all flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {statusIcons[campaign.status]}
                           <div>
@@ -153,7 +153,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <span className="font-semibold text-[var(--color-navy)]">
-                          {formatMON(amount)} MON
+                          {formatMON(amount)} USDC
                         </span>
                       </div>
                     </Link>
@@ -166,18 +166,18 @@ export default function DashboardPage() {
           {/* My Campaigns */}
           <section>
             <h2 className="text-xl font-semibold text-[var(--color-navy)] flex items-center gap-2 mb-4">
-              <FolderOpen className="w-5 h-5 text-[var(--color-teal)]" />
+              <FolderOpen className="w-5 h-5 text-violet-400" />
               My Campaigns
             </h2>
 
             {allCampaigns?.created.length === 0 ? (
-              <div className="bg-white rounded-xl border border-[var(--color-border)] p-8 text-center">
+              <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-8 text-center">
                 <p className="text-[var(--color-muted)]">
                   No campaigns created yet.
                 </p>
                 <Link
                   href="/create"
-                  className="inline-flex items-center gap-1 mt-3 text-sm text-[var(--color-teal)] hover:underline"
+                  className="inline-flex items-center gap-1 mt-3 text-sm text-violet-400 hover:text-violet-300 transition-colors"
                 >
                   Create a campaign <ArrowRight className="w-3 h-3" />
                 </Link>
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                       key={campaign.address}
                       href={`/campaign/${campaign.address}`}
                     >
-                      <div className="bg-white rounded-xl border border-[var(--color-border)] p-4 hover:shadow-sm transition-shadow flex items-center justify-between">
+                      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 hover:border-violet-500/30 hover:shadow-md hover:shadow-violet-900/20 transition-all flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {statusIcons[campaign.status]}
                           <div>
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                             </p>
                             <p className="text-xs text-[var(--color-muted)]">
                               {formatMON(campaign.totalRaised)} /{" "}
-                              {formatMON(campaign.fundingGoal)} MON
+                              {formatMON(campaign.fundingGoal)} USDC
                             </p>
                           </div>
                         </div>

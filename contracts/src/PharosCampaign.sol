@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import {FeeCollectible} from "./FeeCollectible.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @title PharosCampaign - Individual assurance-contract crowdfunding campaign
-/// @notice Handles donations, milestone matching, finalization, claims, and refunds
+/// @title PharosCampaign - Individual assurance-contract crowdfunding campaign (ERC20)
 contract PharosCampaign is FeeCollectible, ReentrancyGuard {
 
     // ——— Types ———————————————————————————————————————
@@ -23,6 +23,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     }
 
     // ——— State ———————————————————————————————————————
+    IERC20 public immutable token;
     address public immutable recipient;
     uint256 public immutable fundingGoal;
     uint256 public immutable startTime;
@@ -70,11 +71,11 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     error InvalidCommitment();
     error NullifierAlreadyUsed();
     error UseRefundShielded();
-    error TransferFailed();
     error MatchNotFunded();
 
     // ——— Constructor ————————————————————————————————
     constructor(
+        address _token,
         address _recipient,
         uint256 _fundingGoal,
         uint256 _startTime,
@@ -83,6 +84,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
         address _feeCollector,
         string memory _metadataURI
     ) FeeCollectible(_feeCollector) {
+        token = IERC20(_token);
         recipient = _recipient;
         fundingGoal = _fundingGoal;
         startTime = _startTime;
@@ -92,70 +94,60 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
         status = Status.Active;
     }
 
-    // ——— Receive (bare transfers become public donations) ———
-    receive() external payable {
-        _donate(msg.sender, msg.value);
-    }
-
     // ——— Public Donation ————————————————————————————
-    function donate() external payable {
-        _donate(msg.sender, msg.value);
-    }
-
-    function _donate(address donor, uint256 amount) internal {
+    function donate(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp < startTime || block.timestamp > endTime) revert CampaignNotActive();
 
-        if (donations[donor] == 0) {
-            donorList.push(donor);
+        token.transferFrom(msg.sender, address(this), amount);
+
+        if (donations[msg.sender] == 0) {
+            donorList.push(msg.sender);
         }
-        donations[donor] += amount;
+        donations[msg.sender] += amount;
         totalRaised += amount;
 
         _checkAndActivateMilestones();
 
-        emit DonationReceived(donor, amount);
+        emit DonationReceived(msg.sender, amount);
     }
 
     // ——— Shielded Donation ——————————————————————————
-    /// @notice Records a shielded donation with a commitment hash for refund claims.
-    ///         commitmentHash = keccak256(abi.encodePacked(amount, secret, nullifier))
-    ///         If campaign fails, donor can claim refund by revealing secret + nullifier.
-    /// @param commitmentHash Hash commitment for this shielded donation (bytes32(0) for non-refundable)
-    function donateShielded(bytes32 commitmentHash) external payable {
+    /// @param commitmentHash keccak256(abi.encodePacked(amount, secret, nullifier))
+    /// @param amount Token amount to donate
+    function donateShielded(bytes32 commitmentHash, uint256 amount) external {
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp < startTime || block.timestamp > endTime) revert CampaignNotActive();
-        if (msg.value == 0) revert ZeroAmount();
+        if (amount == 0) revert ZeroAmount();
 
-        totalRaised += msg.value;
+        token.transferFrom(msg.sender, address(this), amount);
+
+        totalRaised += amount;
         shieldedDonationCount++;
-        shieldedDonationTotal += msg.value;
+        shieldedDonationTotal += amount;
 
         if (commitmentHash != bytes32(0)) {
-            shieldedCommitments[commitmentHash] = msg.value;
+            shieldedCommitments[commitmentHash] = amount;
         }
 
         _checkAndActivateMilestones();
 
-        emit ShieldedDonationReceived(shieldedDonationCount, msg.value);
+        emit ShieldedDonationReceived(shieldedDonationCount, amount);
     }
 
     // ——— Milestone Matching —————————————————————————
-    /// @notice Create a milestone match commitment (public or private).
-    /// @param milestoneThreshold The total raised threshold to activate this match
-    /// @param matchAmount The amount the matcher will contribute if milestone is hit
-    /// @param isPrivate Whether the matcher's identity is shielded via Unlink
-    /// @param commitmentHash For private matchers: keccak256(matchAmount, secret, nullifier)
     function createMilestoneMatch(
         uint256 milestoneThreshold,
         uint256 matchAmount,
         bool isPrivate,
         bytes32 commitmentHash
-    ) external payable {
+    ) external {
         if (status != Status.Active) revert CampaignNotActive();
-        if (msg.value != matchAmount) revert ZeroAmount();
+        if (matchAmount == 0) revert ZeroAmount();
         if (isPrivate && commitmentHash == bytes32(0)) revert InvalidCommitment();
+
+        token.transferFrom(msg.sender, address(this), matchAmount);
 
         milestoneMatches.push(MilestoneMatch({
             matcher: isPrivate ? address(0) : msg.sender,
@@ -197,7 +189,6 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     }
 
     // ——— Finalization ———————————————————————————————
-    /// @notice Finalize the campaign. Callable by anyone after end time.
     function finalize() external {
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp <= endTime) revert CampaignNotEnded();
@@ -221,8 +212,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
         uint256 feeAmount = (totalRaised * feeBasisPoints) / 10000;
         uint256 recipientAmount = totalRaised - feeAmount;
 
-        (bool success,) = recipient.call{value: recipientAmount}("");
-        if (!success) revert TransferFailed();
+        token.transfer(recipient, recipientAmount);
 
         emit FundsClaimed(recipient, recipientAmount);
     }
@@ -237,8 +227,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
 
         uint256 feeAmount = (totalRaised * feeBasisPoints) / 10000;
 
-        (bool success,) = feeCollector.call{value: feeAmount}("");
-        if (!success) revert TransferFailed();
+        token.transfer(feeCollector, feeAmount);
 
         emit FeeCollected(feeCollector, feeAmount);
     }
@@ -252,13 +241,11 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
 
         donations[msg.sender] = 0;
 
-        (bool success,) = msg.sender.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        token.transfer(msg.sender, amount);
 
         emit RefundClaimed(msg.sender, amount);
     }
 
-    /// @notice Batch refund for all public donors (callable by anyone)
     function batchRefund() external nonReentrant {
         if (status != Status.Failed) revert CampaignNotFailed();
 
@@ -267,15 +254,12 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
             uint256 amount = donations[donor];
             if (amount > 0) {
                 donations[donor] = 0;
-                (bool success,) = donor.call{value: amount}("");
-                if (success) {
-                    emit RefundClaimed(donor, amount);
-                }
+                token.transfer(donor, amount);
+                emit RefundClaimed(donor, amount);
             }
         }
     }
 
-    /// @notice Refund unactivated public milestone match on failure
     function refundMatch(uint256 matchIndex) external nonReentrant {
         if (status != Status.Failed) revert CampaignNotFailed();
 
@@ -285,23 +269,16 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
 
         m.isRefunded = true;
 
-        (bool success,) = m.matcher.call{value: m.matchAmount}("");
-        if (!success) revert TransferFailed();
+        token.transfer(m.matcher, m.matchAmount);
 
         emit MatchRefunded(matchIndex, m.matchAmount);
     }
 
-    /// @notice Refund a shielded donation OR private milestone match by revealing
-    ///         the commitment secret + nullifier.
-    /// @param commitmentHash The original commitment hash
-    /// @param secret The secret used to generate the commitment
-    /// @param nullifier The nullifier (prevents double-refund)
-    /// @param refundTo The address to send the refund to
     function refundShielded(
         bytes32 commitmentHash,
         bytes32 secret,
         bytes32 nullifier,
-        address payable refundTo
+        address refundTo
     ) external nonReentrant {
         if (status != Status.Failed) revert CampaignNotFailed();
 
@@ -315,7 +292,6 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
         usedNullifiers[nullifier] = true;
         shieldedCommitments[commitmentHash] = 0;
 
-        // Mark private milestone match as refunded if applicable
         for (uint256 i = 0; i < milestoneMatches.length; i++) {
             if (milestoneMatches[i].commitmentHash == commitmentHash && !milestoneMatches[i].isRefunded) {
                 milestoneMatches[i].isRefunded = true;
@@ -323,8 +299,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
             }
         }
 
-        (bool success,) = refundTo.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        token.transfer(refundTo, amount);
 
         emit ShieldedRefundClaimed(commitmentHash, amount);
     }

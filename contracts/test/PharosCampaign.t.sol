@@ -4,8 +4,10 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {PharosCampaign} from "../src/PharosCampaign.sol";
 import {PharosCampaignFactory} from "../src/PharosCampaignFactory.sol";
+import {MockERC20} from "./MockERC20.sol";
 
 contract PharosCampaignTest is Test {
+    MockERC20 token;
     PharosCampaignFactory factory;
     PharosCampaign campaign;
 
@@ -21,10 +23,12 @@ contract PharosCampaignTest is Test {
     uint16 feeBps = 100; // 1%
 
     function setUp() public {
+        token = new MockERC20();
+
         startTime = block.timestamp + 1;
         endTime = block.timestamp + 7 days;
 
-        factory = new PharosCampaignFactory(feeCollector, feeBps);
+        factory = new PharosCampaignFactory(address(token), feeCollector, feeBps);
 
         vm.warp(block.timestamp);
         address campaignAddr = factory.createCampaign(
@@ -34,12 +38,19 @@ contract PharosCampaignTest is Test {
             endTime,
             "ipfs://test-metadata"
         );
-        campaign = PharosCampaign(payable(campaignAddr));
+        campaign = PharosCampaign(campaignAddr);
 
-        // Fund test accounts
-        vm.deal(donor1, 100 ether);
-        vm.deal(donor2, 100 ether);
-        vm.deal(matcher1, 100 ether);
+        // Mint tokens and approve campaign for test accounts
+        token.mint(donor1, 100 ether);
+        token.mint(donor2, 100 ether);
+        token.mint(matcher1, 100 ether);
+
+        vm.prank(donor1);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(donor2);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(matcher1);
+        token.approve(address(campaign), type(uint256).max);
     }
 
     // ——— Factory Tests ———————————————————————————
@@ -103,29 +114,21 @@ contract PharosCampaignTest is Test {
     function test_donate_success() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
 
         assertEq(campaign.totalRaised(), 1 ether);
         assertEq(campaign.donations(donor1), 1 ether);
         assertEq(campaign.getDonorCount(), 1);
     }
 
-    function test_donate_via_receive() public {
-        vm.warp(startTime);
-        vm.prank(donor1);
-        (bool ok,) = address(campaign).call{value: 1 ether}("");
-        assertTrue(ok);
-        assertEq(campaign.totalRaised(), 1 ether);
-    }
-
     function test_donate_multiple_donors() public {
         vm.warp(startTime);
 
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
 
         vm.prank(donor2);
-        campaign.donate{value: 5 ether}();
+        campaign.donate(5 ether);
 
         assertEq(campaign.totalRaised(), 8 ether);
         assertEq(campaign.getDonorCount(), 2);
@@ -134,21 +137,21 @@ contract PharosCampaignTest is Test {
     function test_donate_before_start_reverts() public {
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.CampaignNotActive.selector);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
     }
 
     function test_donate_after_end_reverts() public {
         vm.warp(endTime + 1);
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.CampaignNotActive.selector);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
     }
 
     function test_donate_zero_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.ZeroAmount.selector);
-        campaign.donate{value: 0}();
+        campaign.donate(0);
     }
 
     // ——— Shielded Donation Tests —————————————————
@@ -162,7 +165,7 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         assertEq(campaign.totalRaised(), amount);
         assertEq(campaign.shieldedDonationCount(), 1);
@@ -175,7 +178,7 @@ contract PharosCampaignTest is Test {
     function test_shielded_donation_no_commitment() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
 
         assertEq(campaign.totalRaised(), 1 ether);
         assertEq(campaign.shieldedDonationCount(), 1);
@@ -186,7 +189,7 @@ contract PharosCampaignTest is Test {
     function test_finalize_successful() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -197,7 +200,7 @@ contract PharosCampaignTest is Test {
     function test_finalize_failed() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -223,23 +226,23 @@ contract PharosCampaignTest is Test {
     function test_claim_funds() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        uint256 recipientBalBefore = recipient.balance;
+        uint256 recipientBalBefore = token.balanceOf(recipient);
         campaign.claimFunds();
 
         uint256 feeAmount = (fundingGoal * feeBps) / 10000;
         uint256 expectedRecipient = fundingGoal - feeAmount;
-        assertEq(recipient.balance - recipientBalBefore, expectedRecipient);
+        assertEq(token.balanceOf(recipient) - recipientBalBefore, expectedRecipient);
     }
 
     function test_claim_funds_twice_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -254,24 +257,24 @@ contract PharosCampaignTest is Test {
     function test_collect_fee() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
         campaign.claimFunds();
 
-        uint256 feeBalBefore = feeCollector.balance;
+        uint256 feeBalBefore = token.balanceOf(feeCollector);
         vm.prank(feeCollector);
         campaign.collectFee();
 
         uint256 feeAmount = (fundingGoal * feeBps) / 10000;
-        assertEq(feeCollector.balance - feeBalBefore, feeAmount);
+        assertEq(token.balanceOf(feeCollector) - feeBalBefore, feeAmount);
     }
 
     function test_collect_fee_before_claim_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -286,16 +289,16 @@ contract PharosCampaignTest is Test {
     function test_refund() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        uint256 balBefore = donor1.balance;
+        uint256 balBefore = token.balanceOf(donor1);
         vm.prank(donor1);
         campaign.refund();
 
-        assertEq(donor1.balance - balBefore, 3 ether);
+        assertEq(token.balanceOf(donor1) - balBefore, 3 ether);
         assertEq(campaign.donations(donor1), 0);
     }
 
@@ -312,20 +315,20 @@ contract PharosCampaignTest is Test {
         vm.warp(startTime);
 
         vm.prank(donor1);
-        campaign.donate{value: 2 ether}();
+        campaign.donate(2 ether);
         vm.prank(donor2);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        uint256 bal1Before = donor1.balance;
-        uint256 bal2Before = donor2.balance;
+        uint256 bal1Before = token.balanceOf(donor1);
+        uint256 bal2Before = token.balanceOf(donor2);
 
         campaign.batchRefund();
 
-        assertEq(donor1.balance - bal1Before, 2 ether);
-        assertEq(donor2.balance - bal2Before, 3 ether);
+        assertEq(token.balanceOf(donor1) - bal1Before, 2 ether);
+        assertEq(token.balanceOf(donor2) - bal2Before, 3 ether);
     }
 
     // ——— Shielded Refund Tests ———————————————————
@@ -339,17 +342,15 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        address payable refundAddr = payable(address(0xBBBB));
-        uint256 balBefore = refundAddr.balance;
-
+        address refundAddr = address(0xBBBB);
         campaign.refundShielded(commitment, secret, nullifier, refundAddr);
 
-        assertEq(refundAddr.balance - balBefore, amount);
+        assertEq(token.balanceOf(refundAddr), amount);
         assertEq(campaign.shieldedCommitments(commitment), 0);
         assertTrue(campaign.usedNullifiers(nullifier));
     }
@@ -363,12 +364,12 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        address payable refundAddr = payable(address(0xBBBB));
+        address refundAddr = address(0xBBBB);
         campaign.refundShielded(commitment, secret, nullifier, refundAddr);
 
         vm.expectRevert(PharosCampaign.NoDonation.selector);
@@ -384,13 +385,13 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
         bytes32 wrongSecret = keccak256("wrongsecret");
-        address payable refundAddr = payable(address(0xBBBB));
+        address refundAddr = address(0xBBBB);
 
         vm.expectRevert(PharosCampaign.InvalidCommitment.selector);
         campaign.refundShielded(commitment, wrongSecret, nullifier, refundAddr);
@@ -402,7 +403,7 @@ contract PharosCampaignTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 5 ether}(
+        campaign.createMilestoneMatch(
             8 ether,  // threshold
             5 ether,  // match amount
             false,    // public
@@ -418,7 +419,7 @@ contract PharosCampaignTest is Test {
 
         // Create match: activate when 5 ether raised
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
+        campaign.createMilestoneMatch(
             5 ether,
             3 ether,
             false,
@@ -427,7 +428,7 @@ contract PharosCampaignTest is Test {
 
         // Donate past the threshold
         vm.prank(donor1);
-        campaign.donate{value: 5 ether}();
+        campaign.donate(5 ether);
 
         // totalRaised should be 5 (donation) + 3 (activated match) = 8
         assertEq(campaign.totalRaised(), 8 ether);
@@ -442,7 +443,7 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(matchAmt, secret, nullifier));
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: matchAmt}(
+        campaign.createMilestoneMatch(
             6 ether,
             matchAmt,
             true,
@@ -460,7 +461,7 @@ contract PharosCampaignTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 5 ether}(
+        campaign.createMilestoneMatch(
             8 ether,
             5 ether,
             false,
@@ -470,9 +471,9 @@ contract PharosCampaignTest is Test {
         vm.warp(endTime + 1);
         campaign.finalize(); // Fails: no donations
 
-        uint256 balBefore = matcher1.balance;
+        uint256 balBefore = token.balanceOf(matcher1);
         campaign.refundMatch(0);
-        assertEq(matcher1.balance - balBefore, 5 ether);
+        assertEq(token.balanceOf(matcher1) - balBefore, 5 ether);
     }
 
     function test_refund_private_match_on_failure() public {
@@ -484,7 +485,7 @@ contract PharosCampaignTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(matchAmt, secret, nullifier));
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: matchAmt}(
+        campaign.createMilestoneMatch(
             8 ether,
             matchAmt,
             true,
@@ -500,9 +501,9 @@ contract PharosCampaignTest is Test {
         campaign.refundMatch(0);
 
         // Use refundShielded instead
-        address payable freshAddr = payable(address(0xCCCC));
+        address freshAddr = address(0xCCCC);
         campaign.refundShielded(commitment, secret, nullifier, freshAddr);
-        assertEq(freshAddr.balance, matchAmt);
+        assertEq(token.balanceOf(freshAddr), matchAmt);
     }
 
     // ——— Reentrancy Protection ———————————————————
@@ -511,7 +512,7 @@ contract PharosCampaignTest is Test {
         // Just verify the nonReentrant modifier is present by testing normal claim works
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
         campaign.claimFunds();

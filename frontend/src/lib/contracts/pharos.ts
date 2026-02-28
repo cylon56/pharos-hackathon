@@ -2,15 +2,16 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  formatEther,
-  parseEther,
+  formatUnits,
+  parseUnits,
+  maxUint256,
   type WalletClient,
   type PublicClient,
   custom,
 } from "viem";
 import { activeChain } from "@/config/chains";
-import { FACTORY_ADDRESS } from "@/config/contracts";
-import { FACTORY_ABI, CAMPAIGN_ABI } from "./abis";
+import { FACTORY_ADDRESS, USDC_ADDRESS } from "@/config/contracts";
+import { FACTORY_ABI, CAMPAIGN_ABI, ERC20_ABI } from "./abis";
 
 export const publicClient: PublicClient = createPublicClient({
   chain: activeChain,
@@ -147,6 +148,19 @@ export async function getDonationAmount(
   return result as bigint;
 }
 
+export async function getTokenAllowance(
+  ownerAddress: `0x${string}`,
+  spenderAddress: `0x${string}`
+): Promise<bigint> {
+  const result = await publicClient.readContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [ownerAddress, spenderAddress],
+  });
+  return result as bigint;
+}
+
 // ——— Metadata Helpers ————————————————————
 
 export function parseMetadataURI(uri: string): CampaignMetadata {
@@ -166,6 +180,29 @@ export function parseMetadataURI(uri: string): CampaignMetadata {
       category: "General",
     };
   }
+}
+
+// ——— ERC20 Approval ———————————————————————
+
+async function approveToken(
+  walletClient: WalletClient,
+  spenderAddress: `0x${string}`,
+  amount: bigint
+) {
+  const ownerAddress = walletClient.account!.address;
+  const allowance = await getTokenAllowance(ownerAddress, spenderAddress);
+  if (allowance >= amount) return null;
+
+  const { request } = await publicClient.simulateContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "approve",
+    args: [spenderAddress, maxUint256],
+    account: walletClient.account!,
+  });
+  const hash = await walletClient.writeContract(request);
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
 }
 
 // ——— Write Functions (require walletClient) ——
@@ -201,11 +238,13 @@ export async function donate(
   campaignAddress: `0x${string}`,
   amount: bigint
 ) {
+  await approveToken(walletClient, campaignAddress, amount);
+
   const { request } = await publicClient.simulateContract({
     address: campaignAddress,
     abi: CAMPAIGN_ABI,
     functionName: "donate",
-    value: amount,
+    args: [amount],
     account: walletClient.account!,
   });
   return walletClient.writeContract(request);
@@ -217,12 +256,13 @@ export async function donateShielded(
   amount: bigint,
   commitmentHash: `0x${string}`
 ) {
+  await approveToken(walletClient, campaignAddress, amount);
+
   const { request } = await publicClient.simulateContract({
     address: campaignAddress,
     abi: CAMPAIGN_ABI,
     functionName: "donateShielded",
-    args: [commitmentHash],
-    value: amount,
+    args: [commitmentHash, amount],
     account: walletClient.account!,
   });
   return walletClient.writeContract(request);
@@ -238,6 +278,8 @@ export async function createMilestoneMatchTx(
     commitmentHash: `0x${string}`;
   }
 ) {
+  await approveToken(walletClient, campaignAddress, params.matchAmount);
+
   const { request } = await publicClient.simulateContract({
     address: campaignAddress,
     abi: CAMPAIGN_ABI,
@@ -248,7 +290,6 @@ export async function createMilestoneMatchTx(
       params.isPrivate,
       params.commitmentHash,
     ],
-    value: params.matchAmount,
     account: walletClient.account!,
   });
   return walletClient.writeContract(request);
@@ -320,4 +361,4 @@ export async function refundShielded(
 
 // ——— Formatting Helpers ——————————————————
 
-export { formatEther, parseEther };
+export { formatUnits, parseUnits };

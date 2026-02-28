@@ -39,9 +39,9 @@ export function DonorList({ campaignAddress, shieldedCount }: DonorListProps) {
   }, [donorAddresses, campaignAddress]);
 
   return (
-    <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-      <h3 className="text-lg font-semibold text-[var(--color-navy)] flex items-center gap-2 mb-4">
-        <Users className="w-5 h-5 text-[var(--color-teal)]" />
+    <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6">
+      <h3 className="text-lg font-semibold text-[var(--color-ocean)] flex items-center gap-2 mb-4">
+        <Users className="w-5 h-5 text-violet-400" />
         Donors ({donors.length + shieldedCount})
       </h3>
 
@@ -49,24 +49,24 @@ export function DonorList({ campaignAddress, shieldedCount }: DonorListProps) {
         {donors.map((d) => (
           <div
             key={d.address}
-            className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50"
+            className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors"
           >
-            <span className="text-sm font-mono text-[var(--color-navy)]">
+            <span className="text-sm font-mono text-[var(--color-ocean)]">
               {truncateAddress(d.address)}
             </span>
             <span className="text-sm font-medium text-[var(--color-muted)]">
-              {formatMON(d.amount)} MON
+              {formatMON(d.amount)} USDC
             </span>
           </div>
         ))}
 
         {shieldedCount > 0 && (
-          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-emerald-50">
-            <span className="text-sm text-emerald-700 flex items-center gap-1.5">
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-violet-900/20 border border-violet-500/20">
+            <span className="text-sm text-violet-400 flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5" />
               {shieldedCount} private donor{shieldedCount !== 1 ? "s" : ""}
             </span>
-            <span className="text-xs text-emerald-600">Identity shielded</span>
+            <span className="text-xs text-violet-500">Identity shielded</span>
           </div>
         )}
 

@@ -1,22 +1,61 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-navy: #1a1a2e;
-  --color-navy-light: #25253e;
-  --color-teal: #16c79a;
-  --color-teal-dark: #12a880;
-  --color-warm-white: #fafaf9;
-  --color-muted: #6b7280;
-  --color-border: #e5e7eb;
+  --color-ocean: #e5e7eb;
+  --color-ocean-light: #f3f4f6;
+  --color-beacon: #8b5cf6;
+  --color-beacon-light: #a78bfa;
+  --color-beacon-dark: #7c3aed;
+  --color-warm-white: #0f0d1a;
+  --color-muted: #9ca3af;
+  --color-border: rgba(139, 92, 246, 0.15);
+  --color-surface: #1a1726;
+  --color-surface-hover: #1e1b2e;
+  --color-navy: #e5e7eb;
+  --color-navy-light: #f3f4f6;
+  --color-teal: #8b5cf6;
+  --color-teal-dark: #7c3aed;
+  --color-input-bg: #13111d;
+  --color-input-border: #2d2640;
 }
 
 body {
   background: var(--color-warm-white);
-  color: var(--color-navy);
+  color: var(--color-ocean);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Dark theme form inputs */
+input,
+textarea,
+select {
+  background-color: var(--color-input-bg);
+  color: var(--color-ocean);
+  border-color: var(--color-input-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-muted);
+}
+
+/* Gradient CTA button */
+.btn-primary {
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  color: white;
+  transition: box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.35);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

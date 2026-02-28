@@ -5,10 +5,12 @@ import {Test, console} from "forge-std/Test.sol";
 import {PharosCampaign} from "../src/PharosCampaign.sol";
 import {PharosCampaignFactory} from "../src/PharosCampaignFactory.sol";
 import {FeeCollectible} from "../src/FeeCollectible.sol";
+import {MockERC20} from "./MockERC20.sol";
 
 /// @title PharosCampaignAdvanced - Extended test coverage
 /// @notice Edge cases, fuzz tests, event verification, and invariant checks
 contract PharosCampaignAdvancedTest is Test {
+    MockERC20 token;
     PharosCampaignFactory factory;
     PharosCampaign campaign;
 
@@ -26,10 +28,12 @@ contract PharosCampaignAdvancedTest is Test {
     uint16 feeBps = 100; // 1%
 
     function setUp() public {
+        token = new MockERC20();
+
         startTime = block.timestamp + 1;
         endTime = block.timestamp + 7 days;
 
-        factory = new PharosCampaignFactory(feeCollector, feeBps);
+        factory = new PharosCampaignFactory(address(token), feeCollector, feeBps);
 
         address campaignAddr = factory.createCampaign(
             recipient,
@@ -38,13 +42,26 @@ contract PharosCampaignAdvancedTest is Test {
             endTime,
             "ipfs://test-metadata"
         );
-        campaign = PharosCampaign(payable(campaignAddr));
+        campaign = PharosCampaign(campaignAddr);
 
-        vm.deal(donor1, 100 ether);
-        vm.deal(donor2, 100 ether);
-        vm.deal(donor3, 100 ether);
-        vm.deal(matcher1, 100 ether);
-        vm.deal(matcher2, 100 ether);
+        // Mint tokens to test accounts
+        token.mint(donor1, 100 ether);
+        token.mint(donor2, 100 ether);
+        token.mint(donor3, 100 ether);
+        token.mint(matcher1, 100 ether);
+        token.mint(matcher2, 100 ether);
+
+        // Approve campaign to spend tokens
+        vm.prank(donor1);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(donor2);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(donor3);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(matcher1);
+        token.approve(address(campaign), type(uint256).max);
+        vm.prank(matcher2);
+        token.approve(address(campaign), type(uint256).max);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -80,7 +97,7 @@ contract PharosCampaignAdvancedTest is Test {
 
     function test_factory_zero_fee_collector_reverts() public {
         vm.expectRevert(FeeCollectible.ZeroAddress.selector);
-        new PharosCampaignFactory(address(0), feeBps);
+        new PharosCampaignFactory(address(token), address(0), feeBps);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -160,9 +177,9 @@ contract PharosCampaignAdvancedTest is Test {
     function test_donate_same_donor_accumulates() public {
         vm.warp(startTime);
         vm.startPrank(donor1);
-        campaign.donate{value: 1 ether}();
-        campaign.donate{value: 2 ether}();
-        campaign.donate{value: 3 ether}();
+        campaign.donate(1 ether);
+        campaign.donate(2 ether);
+        campaign.donate(3 ether);
         vm.stopPrank();
 
         assertEq(campaign.donations(donor1), 6 ether);
@@ -174,7 +191,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_donate_exact_goal() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         assertEq(campaign.totalRaised(), fundingGoal);
     }
@@ -182,7 +199,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_donate_over_goal_allowed() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal + 5 ether}();
+        campaign.donate(fundingGoal + 5 ether);
 
         assertEq(campaign.totalRaised(), fundingGoal + 5 ether);
     }
@@ -192,29 +209,21 @@ contract PharosCampaignAdvancedTest is Test {
         vm.prank(donor1);
         vm.expectEmit(true, false, false, true);
         emit PharosCampaign.DonationReceived(donor1, 2 ether);
-        campaign.donate{value: 2 ether}();
+        campaign.donate(2 ether);
     }
 
     function test_donate_at_exact_start_time() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
         assertEq(campaign.totalRaised(), 1 ether);
     }
 
     function test_donate_at_exact_end_time() public {
         vm.warp(endTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
         assertEq(campaign.totalRaised(), 1 ether);
-    }
-
-    function test_receive_zero_reverts() public {
-        vm.warp(startTime);
-        vm.prank(donor1);
-        // Low-level call catches revert and returns false
-        (bool ok,) = address(campaign).call{value: 0}("");
-        assertFalse(ok);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -225,29 +234,29 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.ZeroAmount.selector);
-        campaign.donateShielded{value: 0}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 0);
     }
 
     function test_shielded_donation_before_start_reverts() public {
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.CampaignNotActive.selector);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
     }
 
     function test_shielded_donation_after_end_reverts() public {
         vm.warp(endTime + 1);
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.CampaignNotActive.selector);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
     }
 
     function test_multiple_shielded_donations() public {
         vm.warp(startTime);
 
         vm.prank(donor1);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
         vm.prank(donor2);
-        campaign.donateShielded{value: 2 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 2 ether);
 
         assertEq(campaign.shieldedDonationCount(), 2);
         assertEq(campaign.shieldedDonationTotal(), 3 ether);
@@ -259,18 +268,18 @@ contract PharosCampaignAdvancedTest is Test {
         vm.prank(donor1);
         vm.expectEmit(true, false, false, true);
         emit PharosCampaign.ShieldedDonationReceived(1, 3 ether);
-        campaign.donateShielded{value: 3 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 3 ether);
     }
 
     function test_donor_count_includes_shielded() public {
         vm.warp(startTime);
 
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
         vm.prank(donor2);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
         vm.prank(donor3);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
 
         // getDonorCount = public donors + shielded count
         assertEq(campaign.getDonorCount(), 3);
@@ -284,7 +293,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_finalize_exactly_at_goal() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -295,7 +304,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_finalize_one_wei_below_goal() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal - 1}();
+        campaign.donate(fundingGoal - 1);
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -306,7 +315,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_finalize_event_successful() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
 
         vm.warp(endTime + 1);
         vm.expectEmit(false, false, false, true);
@@ -317,7 +326,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_finalize_event_failed() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
 
         vm.warp(endTime + 1);
         vm.expectEmit(false, false, false, true);
@@ -362,7 +371,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_claim_funds_event() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
 
@@ -377,16 +386,16 @@ contract PharosCampaignAdvancedTest is Test {
     function test_claim_anyone_can_trigger() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
 
         // Anyone can call claimFunds, not just the recipient
-        uint256 balBefore = recipient.balance;
+        uint256 balBefore = token.balanceOf(recipient);
         vm.prank(address(0xDEAD));
         campaign.claimFunds();
 
-        assertTrue(recipient.balance > balBefore);
+        assertTrue(token.balanceOf(recipient) > balBefore);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -396,7 +405,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_collect_fee_not_collector_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
         campaign.claimFunds();
@@ -409,7 +418,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_collect_fee_twice_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
         campaign.claimFunds();
@@ -434,7 +443,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_collect_fee_event() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
         campaign.claimFunds();
@@ -450,31 +459,31 @@ contract PharosCampaignAdvancedTest is Test {
     function test_fee_plus_recipient_equals_total() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        uint256 recipientBefore = recipient.balance;
-        uint256 feeBefore = feeCollector.balance;
+        uint256 recipientBefore = token.balanceOf(recipient);
+        uint256 feeBefore = token.balanceOf(feeCollector);
 
         campaign.claimFunds();
         vm.prank(feeCollector);
         campaign.collectFee();
 
-        uint256 recipientReceived = recipient.balance - recipientBefore;
-        uint256 feeReceived = feeCollector.balance - feeBefore;
+        uint256 recipientReceived = token.balanceOf(recipient) - recipientBefore;
+        uint256 feeReceived = token.balanceOf(feeCollector) - feeBefore;
 
         assertEq(recipientReceived + feeReceived, fundingGoal);
     }
 
     // ═══════════════════════════════════════════════════════
-    // ——— Refund Edge Cases ————————————————————————————————
+    // ——— Refund Edge Cases ————————————————════════════════
     // ═══════════════════════════════════════════════════════
 
     function test_refund_when_active_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 1 ether}();
+        campaign.donate(1 ether);
 
         vm.prank(donor1);
         vm.expectRevert(PharosCampaign.CampaignNotFailed.selector);
@@ -484,7 +493,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_refund_when_successful_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: fundingGoal}();
+        campaign.donate(fundingGoal);
         vm.warp(endTime + 1);
         campaign.finalize();
 
@@ -496,7 +505,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_refund_twice_reverts() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
         vm.warp(endTime + 1);
         campaign.finalize();
 
@@ -511,7 +520,7 @@ contract PharosCampaignAdvancedTest is Test {
     function test_refund_event() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
         vm.warp(endTime + 1);
         campaign.finalize();
 
@@ -532,9 +541,9 @@ contract PharosCampaignAdvancedTest is Test {
     function test_batch_refund_after_individual_refunds() public {
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: 2 ether}();
+        campaign.donate(2 ether);
         vm.prank(donor2);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
         vm.warp(endTime + 1);
         campaign.finalize();
 
@@ -543,9 +552,9 @@ contract PharosCampaignAdvancedTest is Test {
         campaign.refund();
 
         // Batch refund should only refund donor2
-        uint256 bal2Before = donor2.balance;
+        uint256 bal2Before = token.balanceOf(donor2);
         campaign.batchRefund();
-        assertEq(donor2.balance - bal2Before, 3 ether);
+        assertEq(token.balanceOf(donor2) - bal2Before, 3 ether);
     }
 
     function test_batch_refund_when_active_reverts() public {
@@ -567,11 +576,11 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         // Campaign still active
         vm.expectRevert(PharosCampaign.CampaignNotFailed.selector);
-        campaign.refundShielded(commitment, secret, nullifier, payable(donor1));
+        campaign.refundShielded(commitment, secret, nullifier, donor1);
     }
 
     function test_refund_shielded_wrong_nullifier() public {
@@ -583,14 +592,14 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
         bytes32 wrongNullifier = keccak256("wrong");
         vm.expectRevert(PharosCampaign.InvalidCommitment.selector);
-        campaign.refundShielded(commitment, secret, wrongNullifier, payable(donor1));
+        campaign.refundShielded(commitment, secret, wrongNullifier, donor1);
     }
 
     function test_refund_shielded_event() public {
@@ -602,13 +611,13 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
         vm.warp(endTime + 1);
         campaign.finalize();
 
         vm.expectEmit(true, false, false, true);
         emit PharosCampaign.ShieldedRefundClaimed(commitment, amount);
-        campaign.refundShielded(commitment, secret, nullifier, payable(donor1));
+        campaign.refundShielded(commitment, secret, nullifier, donor1);
     }
 
     function test_refund_shielded_to_different_address() public {
@@ -620,14 +629,14 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(amount, secret, nullifier));
 
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
         vm.warp(endTime + 1);
         campaign.finalize();
 
         // Refund to a completely different address than the donor
-        address payable altAddr = payable(address(0x1234));
+        address altAddr = address(0x1234);
         campaign.refundShielded(commitment, secret, nullifier, altAddr);
-        assertEq(altAddr.balance, amount);
+        assertEq(token.balanceOf(altAddr), amount);
     }
 
     function test_shielded_no_commitment_cannot_refund() public {
@@ -635,28 +644,25 @@ contract PharosCampaignAdvancedTest is Test {
 
         // Donate shielded with no commitment (bytes32(0))
         vm.prank(donor1);
-        campaign.donateShielded{value: 1 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 1 ether);
 
         vm.warp(endTime + 1);
         campaign.finalize();
 
         // Cannot refund because commitment was bytes32(0), which was not stored
         vm.expectRevert(PharosCampaign.NoDonation.selector);
-        campaign.refundShielded(bytes32(0), bytes32(0), bytes32(0), payable(donor1));
+        campaign.refundShielded(bytes32(0), bytes32(0), bytes32(0), donor1);
     }
 
     // ═══════════════════════════════════════════════════════
-    // ——— Milestone Match Edge Cases ——————————————————————
+    // ——— Milestone Match Edge Cases ——————————════════————
     // ═══════════════════════════════════════════════════════
 
-    function test_milestone_match_value_mismatch_reverts() public {
+    function test_milestone_match_zero_amount_reverts() public {
         vm.warp(startTime);
         vm.prank(matcher1);
         vm.expectRevert(PharosCampaign.ZeroAmount.selector);
-        // Sending 3 ether but claiming 5 ether match
-        campaign.createMilestoneMatch{value: 3 ether}(
-            8 ether, 5 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(8 ether, 0, false, bytes32(0));
     }
 
     function test_milestone_match_when_ended_reverts() public {
@@ -666,18 +672,14 @@ contract PharosCampaignAdvancedTest is Test {
 
         vm.prank(matcher1);
         vm.expectRevert(PharosCampaign.CampaignNotActive.selector);
-        campaign.createMilestoneMatch{value: 1 ether}(
-            5 ether, 1 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 1 ether, false, bytes32(0));
     }
 
     function test_private_match_needs_commitment() public {
         vm.warp(startTime);
         vm.prank(matcher1);
         vm.expectRevert(PharosCampaign.InvalidCommitment.selector);
-        campaign.createMilestoneMatch{value: 1 ether}(
-            5 ether, 1 ether, true, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 1 ether, true, bytes32(0));
     }
 
     function test_milestone_match_event() public {
@@ -685,23 +687,19 @@ contract PharosCampaignAdvancedTest is Test {
         vm.prank(matcher1);
         vm.expectEmit(true, false, false, true);
         emit PharosCampaign.MilestoneMatchCreated(0, 5 ether, 3 ether, false);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            5 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 3 ether, false, bytes32(0));
     }
 
     function test_milestone_activation_event() public {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            5 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 3 ether, false, bytes32(0));
 
         vm.prank(donor1);
         vm.expectEmit(true, false, false, false);
         emit PharosCampaign.MilestoneActivated(0);
-        campaign.donate{value: 5 ether}();
+        campaign.donate(5 ether);
     }
 
     function test_multiple_milestones_cascade() public {
@@ -709,19 +707,15 @@ contract PharosCampaignAdvancedTest is Test {
 
         // Milestone 1: activates at 3 ether raised, adds 1 ether
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 1 ether}(
-            3 ether, 1 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(3 ether, 1 ether, false, bytes32(0));
 
         // Milestone 2: activates at 4 ether raised, adds 2 ether
         vm.prank(matcher2);
-        campaign.createMilestoneMatch{value: 2 ether}(
-            4 ether, 2 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(4 ether, 2 ether, false, bytes32(0));
 
         // Donate 3 ether → triggers milestone 1 (now total = 4) → triggers milestone 2 (now total = 6)
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
 
         // 3 (donation) + 1 (milestone 1) + 2 (milestone 2) = 6
         assertEq(campaign.totalRaised(), 6 ether);
@@ -732,12 +726,10 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            8 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(8 ether, 3 ether, false, bytes32(0));
 
         vm.prank(donor1);
-        campaign.donate{value: 2 ether}();
+        campaign.donate(2 ether);
 
         // Only donation counted, milestone not activated
         assertEq(campaign.totalRaised(), 2 ether);
@@ -748,18 +740,16 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            5 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 3 ether, false, bytes32(0));
 
         // Trigger milestone activation
         vm.prank(donor1);
-        campaign.donate{value: 5 ether}();
+        campaign.donate(5 ether);
 
         vm.warp(endTime + 1);
-        campaign.finalize(); // Succeeds with 8 ether
+        campaign.finalize(); // Fails (8 ether < 10 ether goal)
 
-        // Can't refund an activated match
+        // Match was already activated, so it can't be refunded
         vm.expectRevert(PharosCampaign.MatchNotFunded.selector);
         campaign.refundMatch(0);
     }
@@ -768,9 +758,7 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 5 ether}(
-            8 ether, 5 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(8 ether, 5 ether, false, bytes32(0));
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -784,9 +772,7 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 5 ether}(
-            8 ether, 5 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(8 ether, 5 ether, false, bytes32(0));
 
         vm.warp(endTime + 1);
         campaign.finalize();
@@ -801,17 +787,13 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 2 ether}(
-            3 ether, 2 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(3 ether, 2 ether, false, bytes32(0));
         vm.prank(matcher2);
-        campaign.createMilestoneMatch{value: 4 ether}(
-            9 ether, 4 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(9 ether, 4 ether, false, bytes32(0));
 
         // Activate only first milestone
         vm.prank(donor1);
-        campaign.donate{value: 3 ether}();
+        campaign.donate(3 ether);
 
         assertEq(campaign.getActivatedMatchTotal(), 2 ether);
     }
@@ -825,11 +807,11 @@ contract PharosCampaignAdvancedTest is Test {
 
         // 6 ether public
         vm.prank(donor1);
-        campaign.donate{value: 6 ether}();
+        campaign.donate(6 ether);
 
         // 4 ether shielded
         vm.prank(donor2);
-        campaign.donateShielded{value: 4 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 4 ether);
 
         assertEq(campaign.totalRaised(), 10 ether);
 
@@ -842,13 +824,11 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 2 ether}(
-            5 ether, 2 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(5 ether, 2 ether, false, bytes32(0));
 
         // Shielded donation triggers milestone
         vm.prank(donor1);
-        campaign.donateShielded{value: 5 ether}(bytes32(0));
+        campaign.donateShielded(bytes32(0), 5 ether);
 
         // 5 (shielded) + 2 (milestone) = 7
         assertEq(campaign.totalRaised(), 7 ether);
@@ -863,13 +843,11 @@ contract PharosCampaignAdvancedTest is Test {
 
         // 1. Matcher sets a milestone
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            7 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(7 ether, 3 ether, false, bytes32(0));
 
         // 2. Public donation
         vm.prank(donor1);
-        campaign.donate{value: 5 ether}();
+        campaign.donate(5 ether);
 
         // 3. Shielded donation pushes past threshold
         bytes32 secret = keccak256("lifecycle_secret");
@@ -878,7 +856,7 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(shieldedAmt, secret, nullifier));
 
         vm.prank(donor2);
-        campaign.donateShielded{value: shieldedAmt}(commitment);
+        campaign.donateShielded(commitment, shieldedAmt);
 
         // totalRaised = 5 + 2 + 3(activated) = 10
         assertEq(campaign.totalRaised(), fundingGoal);
@@ -889,20 +867,20 @@ contract PharosCampaignAdvancedTest is Test {
         assertEq(uint256(campaign.status()), uint256(PharosCampaign.Status.Successful));
 
         // 5. Claim funds
-        uint256 recipientBefore = recipient.balance;
+        uint256 recipientBefore = token.balanceOf(recipient);
         campaign.claimFunds();
 
         uint256 feeAmount = (fundingGoal * feeBps) / 10000;
-        assertEq(recipient.balance - recipientBefore, fundingGoal - feeAmount);
+        assertEq(token.balanceOf(recipient) - recipientBefore, fundingGoal - feeAmount);
 
         // 6. Collect fee
-        uint256 feeBefore = feeCollector.balance;
+        uint256 feeBefore = token.balanceOf(feeCollector);
         vm.prank(feeCollector);
         campaign.collectFee();
-        assertEq(feeCollector.balance - feeBefore, feeAmount);
+        assertEq(token.balanceOf(feeCollector) - feeBefore, feeAmount);
 
-        // 7. Contract should be drained (only unactivated match funds remain, but all were activated)
-        assertEq(address(campaign).balance, 0);
+        // 7. Contract should be drained (all match funds were activated)
+        assertEq(token.balanceOf(address(campaign)), 0);
     }
 
     function test_full_failed_lifecycle_with_refunds() public {
@@ -910,13 +888,11 @@ contract PharosCampaignAdvancedTest is Test {
 
         // 1. Matcher sets a milestone (won't activate)
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: 3 ether}(
-            9 ether, 3 ether, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(9 ether, 3 ether, false, bytes32(0));
 
         // 2. Donations that don't reach the goal
         vm.prank(donor1);
-        campaign.donate{value: 2 ether}();
+        campaign.donate(2 ether);
 
         bytes32 secret = keccak256("fail_secret");
         bytes32 nullifier = keccak256("fail_null");
@@ -924,7 +900,7 @@ contract PharosCampaignAdvancedTest is Test {
         bytes32 commitment = keccak256(abi.encodePacked(shieldedAmt, secret, nullifier));
 
         vm.prank(donor2);
-        campaign.donateShielded{value: shieldedAmt}(commitment);
+        campaign.donateShielded(commitment, shieldedAmt);
 
         // totalRaised = 3 (milestone not activated since < 9)
         assertEq(campaign.totalRaised(), 3 ether);
@@ -935,36 +911,36 @@ contract PharosCampaignAdvancedTest is Test {
         assertEq(uint256(campaign.status()), uint256(PharosCampaign.Status.Failed));
 
         // 4. Public refund
-        uint256 bal1Before = donor1.balance;
+        uint256 bal1Before = token.balanceOf(donor1);
         vm.prank(donor1);
         campaign.refund();
-        assertEq(donor1.balance - bal1Before, 2 ether);
+        assertEq(token.balanceOf(donor1) - bal1Before, 2 ether);
 
         // 5. Shielded refund
-        address payable refundAddr = payable(address(0xAAAA));
+        address refundAddr = address(0xAAAA);
         campaign.refundShielded(commitment, secret, nullifier, refundAddr);
-        assertEq(refundAddr.balance, shieldedAmt);
+        assertEq(token.balanceOf(refundAddr), shieldedAmt);
 
         // 6. Match refund
-        uint256 matcherBefore = matcher1.balance;
+        uint256 matcherBefore = token.balanceOf(matcher1);
         campaign.refundMatch(0);
-        assertEq(matcher1.balance - matcherBefore, 3 ether);
+        assertEq(token.balanceOf(matcher1) - matcherBefore, 3 ether);
 
         // 7. Contract should be drained
-        assertEq(address(campaign).balance, 0);
+        assertEq(token.balanceOf(address(campaign)), 0);
     }
 
     // ═══════════════════════════════════════════════════════
-    // ——— Fuzz Tests ———————————————————————————————————————
+    // ——— Fuzz Tests ———————————————————════════════————————
     // ═══════════════════════════════════════════════════════
 
     function testFuzz_donate_any_amount(uint256 amount) public {
         amount = bound(amount, 1, 1000 ether);
-        vm.deal(donor1, amount);
+        token.mint(donor1, amount); // ensure enough tokens for this fuzz run
 
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: amount}();
+        campaign.donate(amount);
 
         assertEq(campaign.totalRaised(), amount);
         assertEq(campaign.donations(donor1), amount);
@@ -977,7 +953,7 @@ contract PharosCampaignAdvancedTest is Test {
 
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donateShielded{value: amount}(commitment);
+        campaign.donateShielded(commitment, amount);
 
         assertEq(campaign.shieldedCommitments(commitment), amount);
 
@@ -985,37 +961,41 @@ contract PharosCampaignAdvancedTest is Test {
         vm.warp(endTime + 1);
         campaign.finalize();
 
-        address payable refundAddr = payable(address(0xBBBB));
+        address refundAddr = address(0xBBBB);
         campaign.refundShielded(commitment, secret, nullifier, refundAddr);
-        assertEq(refundAddr.balance, amount);
+        assertEq(token.balanceOf(refundAddr), amount);
     }
 
     function testFuzz_fee_calculation(uint16 _feeBps) public {
         _feeBps = uint16(bound(_feeBps, 0, 1000));
 
-        PharosCampaignFactory f = new PharosCampaignFactory(feeCollector, _feeBps);
+        PharosCampaignFactory f = new PharosCampaignFactory(address(token), feeCollector, _feeBps);
 
         uint256 _startTime = block.timestamp + 1;
         uint256 _endTime = block.timestamp + 7 days;
         address cAddr = f.createCampaign(recipient, fundingGoal, _startTime, _endTime, "");
-        PharosCampaign c = PharosCampaign(payable(cAddr));
+        PharosCampaign c = PharosCampaign(cAddr);
+
+        // Approve new campaign
+        vm.prank(donor1);
+        token.approve(address(c), type(uint256).max);
 
         vm.warp(_startTime);
         vm.prank(donor1);
-        c.donate{value: fundingGoal}();
+        c.donate(fundingGoal);
 
         vm.warp(_endTime + 1);
         c.finalize();
 
-        uint256 recipientBefore = recipient.balance;
-        uint256 feeBefore = feeCollector.balance;
+        uint256 recipientBefore = token.balanceOf(recipient);
+        uint256 feeBefore = token.balanceOf(feeCollector);
 
         c.claimFunds();
         vm.prank(feeCollector);
         c.collectFee();
 
-        uint256 recipientReceived = recipient.balance - recipientBefore;
-        uint256 feeReceived = feeCollector.balance - feeBefore;
+        uint256 recipientReceived = token.balanceOf(recipient) - recipientBefore;
+        uint256 feeReceived = token.balanceOf(feeCollector) - feeBefore;
 
         // Invariant: fee + recipient = total raised
         assertEq(recipientReceived + feeReceived, fundingGoal);
@@ -1028,17 +1008,13 @@ contract PharosCampaignAdvancedTest is Test {
         a2 = bound(a2, 1, 100 ether);
         a3 = bound(a3, 1, 100 ether);
 
-        vm.deal(donor1, a1);
-        vm.deal(donor2, a2);
-        vm.deal(donor3, a3);
-
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: a1}();
+        campaign.donate(a1);
         vm.prank(donor2);
-        campaign.donate{value: a2}();
+        campaign.donate(a2);
         vm.prank(donor3);
-        campaign.donate{value: a3}();
+        campaign.donate(a3);
 
         assertEq(campaign.totalRaised(), a1 + a2 + a3);
         assertEq(campaign.getPublicDonorCount(), 3);
@@ -1047,21 +1023,20 @@ contract PharosCampaignAdvancedTest is Test {
     function testFuzz_refund_returns_exact_amount(uint256 amount) public {
         // Keep amount below funding goal so campaign fails
         amount = bound(amount, 1, fundingGoal - 1);
-        vm.deal(donor1, amount);
 
         vm.warp(startTime);
         vm.prank(donor1);
-        campaign.donate{value: amount}();
+        campaign.donate(amount);
 
         vm.warp(endTime + 1);
         campaign.finalize();
         assertEq(uint256(campaign.status()), uint256(PharosCampaign.Status.Failed));
 
-        uint256 balBefore = donor1.balance;
+        uint256 balBefore = token.balanceOf(donor1);
         vm.prank(donor1);
         campaign.refund();
 
-        assertEq(donor1.balance - balBefore, amount);
+        assertEq(token.balanceOf(donor1) - balBefore, amount);
     }
 
     function testFuzz_milestone_threshold(uint256 threshold, uint256 matchAmt, uint256 donateAmt) public {
@@ -1069,18 +1044,22 @@ contract PharosCampaignAdvancedTest is Test {
         matchAmt = bound(matchAmt, 1, 50 ether);
         donateAmt = bound(donateAmt, 1, 50 ether);
 
-        vm.deal(matcher1, matchAmt);
-        vm.deal(donor1, donateAmt);
+        // Ensure enough tokens for matcher1 and donor1 (setUp mints 100 ether each)
+        // Mint extra if needed
+        if (matchAmt > token.balanceOf(matcher1)) {
+            token.mint(matcher1, matchAmt - token.balanceOf(matcher1));
+        }
+        if (donateAmt > token.balanceOf(donor1)) {
+            token.mint(donor1, donateAmt - token.balanceOf(donor1));
+        }
 
         vm.warp(startTime);
 
         vm.prank(matcher1);
-        campaign.createMilestoneMatch{value: matchAmt}(
-            threshold, matchAmt, false, bytes32(0)
-        );
+        campaign.createMilestoneMatch(threshold, matchAmt, false, bytes32(0));
 
         vm.prank(donor1);
-        campaign.donate{value: donateAmt}();
+        campaign.donate(donateAmt);
 
         if (donateAmt >= threshold) {
             // Milestone should have activated
