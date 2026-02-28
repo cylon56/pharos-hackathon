@@ -3,7 +3,7 @@ export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ||
 
 // USDC on Monad testnet (6 decimals)
 export const USDC_ADDRESS =
-  "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea" as `0x${string}`;
+  "0x534b2f3A21130d7a60830c2Df862319e593943A3" as `0x${string}`;
 
 export const NATIVE_MON_ADDRESS =
   "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;

@@ -6,7 +6,7 @@ import { truncateAddress } from "@/lib/utils/formatting";
 import { Wallet, Copy, ExternalLink, LogOut, Check } from "lucide-react";
 
 export function WalletButton() {
-  const { handleLogin, authState, clientState, wallets, user } = useTurnkey();
+  const { handleLogin, authState, clientState, wallets, createWallet } = useTurnkey();
 
   function handleLogout() {
     try {
@@ -17,6 +17,7 @@ export function WalletButton() {
   }
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,9 +30,24 @@ export function WalletButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Auto-create an Ethereum wallet for users who logged in before wallet creation was configured
+  useEffect(() => {
+    const hasEthAddress = wallets?.some(w =>
+      w.accounts?.some(a => a.address?.startsWith("0x"))
+    );
+    if (authState !== "authenticated" || hasEthAddress || isCreatingWallet) return;
+
+    setIsCreatingWallet(true);
+    createWallet({
+      walletName: "Pharos Wallet",
+      accounts: ["ADDRESS_FORMAT_ETHEREUM"],
+    }).catch(() => {/* silent */}).finally(() => setIsCreatingWallet(false));
+  }, [authState, wallets, isCreatingWallet, createWallet]);
+
   // Prefund wallet with MON for gas on login
   useEffect(() => {
-    const walletAddress = wallets?.[0]?.accounts?.[0]?.address;
+    const walletAddress = wallets?.flatMap(w => w.accounts || [])
+      .find(a => a.address?.startsWith("0x"))?.address;
     if (authState !== "authenticated" || !walletAddress) return;
 
     fetch("/api/prefund", {
@@ -64,11 +80,21 @@ export function WalletButton() {
     );
   }
 
-  const address =
-    wallets?.[0]?.accounts?.[0]?.address || user?.userName || "Connected";
-  const displayAddress = address.startsWith("0x")
-    ? truncateAddress(address)
-    : address;
+  const address = wallets?.flatMap(w => w.accounts || [])
+    .find(a => a.address?.startsWith("0x"))?.address;
+
+  if (!address) {
+    return (
+      <button
+        disabled
+        className="px-4 py-2 rounded-lg bg-[var(--color-surface-hover)] text-sm text-[var(--color-muted)] animate-pulse"
+      >
+        Creating wallet...
+      </button>
+    );
+  }
+
+  const displayAddress = truncateAddress(address);
 
   function copyAddress() {
     navigator.clipboard.writeText(address);
