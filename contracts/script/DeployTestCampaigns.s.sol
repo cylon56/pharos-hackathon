@@ -7,7 +7,7 @@ import {PharosCampaignTestable} from "../src/PharosCampaignTestable.sol";
 /// @notice Deploys 3 testable demo campaigns and registers each in the factory.
 ///         These campaigns have no time restrictions and support instant finalize/refund.
 contract DeployTestCampaigns is Script {
-    address constant USDC         = 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea;
+    address constant USDC         = 0x534b2f3A21130d7a60830c2Df862319e593943A3;
     address constant FEE_COLLECTOR = 0xfe51689D53F9dA89b9147f0E09dd122399870E77;
     uint16  constant FEE_BPS      = 100; // 1%
 

@@ -14,7 +14,7 @@ import Link from "next/link";
 // USDC has 6 decimals: 1 USDC = 1_000_000n
 const DEMO_CAMPAIGNS: CampaignInfo[] = [
   {
-    address: "0xb4afC034Ee451fd11Dc69dE4b093382e0233Cd49" as `0x${string}`,
+    address: "0xF6c7C8797804b7eBc4F9392ebf6CE7C69B7ef5B6" as `0x${string}`,
     recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
     fundingGoal: 2_000_000_000_000n,    // 2,000,000 USDC
     totalRaised: 1_350_000_000_000n,    // 1,350,000 USDC (67.5%)
@@ -31,7 +31,7 @@ const DEMO_CAMPAIGNS: CampaignInfo[] = [
     }),
   },
   {
-    address: "0x10f58CaA83778f088e9BF0d5f98b1a8ce923FEbC" as `0x${string}`,
+    address: "0x08e287e20DE36fda18C9B66cc986783C10524699" as `0x${string}`,
     recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
     fundingGoal: 1_000_000_000_000n,    // 1,000,000 USDC
     totalRaised: 1_000_000_000_000n,    // 1,000,000 USDC (100%)
@@ -48,7 +48,7 @@ const DEMO_CAMPAIGNS: CampaignInfo[] = [
     }),
   },
   {
-    address: "0xF155D808E07f8Cb2AC8A2cd7B7A0cb48246D2460" as `0x${string}`,
+    address: "0x4409810FE3259E02c414380E5B3c35ea463c405d" as `0x${string}`,
     recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
     fundingGoal: 500_000_000_000n,      // 500,000 USDC
     totalRaised: 164_000_000_000n,      // 164,000 USDC (32.8%)
@@ -167,9 +167,9 @@ export default function DiscoveryPage() {
 
         {/* Disclaimer shown only when displaying demo campaigns */}
         {!isLoading && campaigns?.some(c =>
-          ["0xb4afC034Ee451fd11Dc69dE4b093382e0233Cd49",
-           "0x10f58CaA83778f088e9BF0d5f98b1a8ce923FEbC",
-           "0xF155D808E07f8Cb2AC8A2cd7B7A0cb48246D2460"].includes(c.address)
+          ["0xF6c7C8797804b7eBc4F9392ebf6CE7C69B7ef5B6",
+           "0x08e287e20DE36fda18C9B66cc986783C10524699",
+           "0x4409810FE3259E02c414380E5B3c35ea463c405d"].includes(c.address)
         ) && (
           <p className="mt-6 text-center text-xs text-[var(--color-muted)] opacity-60">
             * Amounts shown above are illustrative. Click a campaign to see live on-chain data and make a real donation.
