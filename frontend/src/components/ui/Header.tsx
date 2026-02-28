@@ -36,6 +36,12 @@ export function Header() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/about"
+                className="text-sm text-[var(--color-muted)] hover:text-violet-400 transition-colors"
+              >
+                About
+              </Link>
             </nav>
           </div>
 

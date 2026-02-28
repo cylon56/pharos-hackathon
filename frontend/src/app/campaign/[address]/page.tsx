@@ -35,11 +35,21 @@ import { truncateAddress } from "@/lib/utils/formatting";
 import { toast } from "sonner";
 import { useState } from "react";
 
+// Testable demo campaign addresses (deployed on Monad testnet)
+// These contracts bypass time restrictions and support instant finalize/refund.
+const TESTABLE_CAMPAIGN_ADDRESSES = new Set([
+  "0xb4afc034ee451fd11dc69de4b093382e0233cd49",
+  "0x10f58caa83778f088e9bf0d5f98b1a8ce923febc",
+  "0xf155d808e07f8cb2ac8a2cd7b7a0cb48246d2460",
+]);
+
 export default function CampaignPage() {
   const params = useParams();
   const address = params.address as `0x${string}`;
   const { authState, wallets, httpClient } = useTurnkey();
   const [actionLoading, setActionLoading] = useState("");
+
+  const isTestable = TESTABLE_CAMPAIGN_ADDRESSES.has(address.toLowerCase());
 
   const {
     data: campaign,
@@ -335,6 +345,13 @@ export default function CampaignPage() {
           </div>
         </div>
       </div>
+
+      {/* Note for testable demo campaigns */}
+      {isTestable && (
+        <p className="mt-10 text-center text-xs text-[var(--color-muted)] opacity-60">
+          * Demo campaign — donations are real USDC on Monad testnet. You can finalize at any time to test instant refunds.
+        </p>
+      )}
     </div>
   );
 }

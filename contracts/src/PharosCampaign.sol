@@ -95,7 +95,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     }
 
     // ——— Public Donation ————————————————————————————
-    function donate(uint256 amount) external {
+    function donate(uint256 amount) external virtual {
         if (amount == 0) revert ZeroAmount();
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp < startTime || block.timestamp > endTime) revert CampaignNotActive();
@@ -116,7 +116,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     // ——— Shielded Donation ——————————————————————————
     /// @param commitmentHash keccak256(abi.encodePacked(amount, secret, nullifier))
     /// @param amount Token amount to donate
-    function donateShielded(bytes32 commitmentHash, uint256 amount) external {
+    function donateShielded(bytes32 commitmentHash, uint256 amount) external virtual {
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp < startTime || block.timestamp > endTime) revert CampaignNotActive();
         if (amount == 0) revert ZeroAmount();
@@ -189,7 +189,7 @@ contract PharosCampaign is FeeCollectible, ReentrancyGuard {
     }
 
     // ——— Finalization ———————————————————————————————
-    function finalize() external {
+    function finalize() external virtual {
         if (status != Status.Active) revert CampaignNotActive();
         if (block.timestamp <= endTime) revert CampaignNotEnded();
 

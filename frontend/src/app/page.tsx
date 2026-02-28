@@ -11,12 +11,13 @@ import { Shield, Zap, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 // Demo campaigns shown when no factory is deployed
+// USDC has 6 decimals: 1 USDC = 1_000_000n
 const DEMO_CAMPAIGNS: CampaignInfo[] = [
   {
-    address: "0x0000000000000000000000000000000000000001" as `0x${string}`,
-    recipient: "0x742d35Cc6634C0532925a3b844Bc9e7595f7F001" as `0x${string}`,
-    fundingGoal: 100000000000000000000n,
-    totalRaised: 67500000000000000000n,
+    address: "0xb4afC034Ee451fd11Dc69dE4b093382e0233Cd49" as `0x${string}`,
+    recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
+    fundingGoal: 2_000_000_000_000n,    // 2,000,000 USDC
+    totalRaised: 1_350_000_000_000n,    // 1,350,000 USDC (67.5%)
     startTime: BigInt(Math.floor(Date.now() / 1000) - 86400),
     endTime: BigInt(Math.floor(Date.now() / 1000) + 86400 * 12),
     status: 0,
@@ -30,10 +31,10 @@ const DEMO_CAMPAIGNS: CampaignInfo[] = [
     }),
   },
   {
-    address: "0x0000000000000000000000000000000000000002" as `0x${string}`,
-    recipient: "0x742d35Cc6634C0532925a3b844Bc9e7595f7F002" as `0x${string}`,
-    fundingGoal: 50000000000000000000n,
-    totalRaised: 50000000000000000000n,
+    address: "0x10f58CaA83778f088e9BF0d5f98b1a8ce923FEbC" as `0x${string}`,
+    recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
+    fundingGoal: 1_000_000_000_000n,    // 1,000,000 USDC
+    totalRaised: 1_000_000_000_000n,    // 1,000,000 USDC (100%)
     startTime: BigInt(Math.floor(Date.now() / 1000) - 86400 * 14),
     endTime: BigInt(Math.floor(Date.now() / 1000) - 86400),
     status: 1,
@@ -47,10 +48,10 @@ const DEMO_CAMPAIGNS: CampaignInfo[] = [
     }),
   },
   {
-    address: "0x0000000000000000000000000000000000000003" as `0x${string}`,
-    recipient: "0x742d35Cc6634C0532925a3b844Bc9e7595f7F003" as `0x${string}`,
-    fundingGoal: 25000000000000000000n,
-    totalRaised: 8200000000000000000n,
+    address: "0xF155D808E07f8Cb2AC8A2cd7B7A0cb48246D2460" as `0x${string}`,
+    recipient: "0xfe51689D53F9dA89b9147f0E09dd122399870E77" as `0x${string}`,
+    fundingGoal: 500_000_000_000n,      // 500,000 USDC
+    totalRaised: 164_000_000_000n,      // 164,000 USDC (32.8%)
     startTime: BigInt(Math.floor(Date.now() / 1000) - 86400 * 2),
     endTime: BigInt(Math.floor(Date.now() / 1000) + 86400 * 5),
     status: 0,
@@ -162,6 +163,17 @@ export default function DiscoveryPage() {
               <CampaignCard key={campaign.address} campaign={campaign} />
             ))}
           </div>
+        )}
+
+        {/* Disclaimer shown only when displaying demo campaigns */}
+        {!isLoading && campaigns?.some(c =>
+          ["0xb4afC034Ee451fd11Dc69dE4b093382e0233Cd49",
+           "0x10f58CaA83778f088e9BF0d5f98b1a8ce923FEbC",
+           "0xF155D808E07f8Cb2AC8A2cd7B7A0cb48246D2460"].includes(c.address)
+        ) && (
+          <p className="mt-6 text-center text-xs text-[var(--color-muted)] opacity-60">
+            * Amounts shown above are illustrative. Click a campaign to see live on-chain data and make a real donation.
+          </p>
         )}
       </section>
 
