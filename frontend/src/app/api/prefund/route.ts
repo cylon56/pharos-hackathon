@@ -9,8 +9,8 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { monadTestnet } from "@/config/chains";
 
-const MIN_BALANCE = parseEther("0.1"); // threshold below which we top up
-const TOPUP_AMOUNT = parseEther("1");  // amount to send
+const MIN_BALANCE = parseEther("0.05"); // threshold below which we top up
+const TOPUP_AMOUNT = parseEther("0.5"); // amount to send
 
 export async function POST(req: NextRequest) {
   try {
